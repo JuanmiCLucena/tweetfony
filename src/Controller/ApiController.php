@@ -40,10 +40,44 @@ class ApiController extends AbstractController
         return new JsonResponse($result);
       }
 
-    function getTweetfonyUser($id) {
-        // TODO
-        return new JsonResponse();
-    }
+      function getTweetfonyUser($id)
+      {
+          // Obtenemos el usuario
+          $entityManager = $this->getDoctrine()->getManager();
+          $user = $entityManager->getRepository(User::class)->find($id);
+  
+          // Si el usuario no existe devolvemos un error con código 404.
+          if ($user == null) {
+              return new JsonResponse([
+                  'error' => 'User not found'
+              ], 404);
+          }
+  
+          // Creamos un objeto genérico y lo rellenamos con la información.
+          $result = new \stdClass();
+          $result->id = $user->getId();
+          $result->name = $user->getName();
+          $result->username = $user->getUsername();
+  
+          // Para enlazar a los tweets que ha escrito, añadimos sus enlaces API.
+          $result->tweets = array();
+          foreach ($user->getTweets() as $tweet) {
+              $result->tweets[] = $this->generateUrl('api_get_tweet', [
+                  'id' => $tweet->getId(),
+              ], UrlGeneratorInterface::ABSOLUTE_URL);
+          }
+  
+          // Igualmente, añadimos el enlace API de los likes para consultar su información.
+          $result->likes = array();
+          foreach ($user->getLikes() as $tweet) {
+              $result->likes[] = $this->generateUrl('api_get_tweet', [
+                  'id' => $tweet->getId(),
+              ], UrlGeneratorInterface::ABSOLUTE_URL);
+          }
+  
+          // Devolvemos el resultado en formato JSON
+          return new JsonResponse($result);
+      }
 
     function index() {
         $result = array();
@@ -54,19 +88,51 @@ class ApiController extends AbstractController
         return new JsonResponse($result);
       }
 
-      function postTweetfonyUser(Request $request) {
+      function postTweet(Request $request)
+      {
+          $entityManager = $this->getDoctrine()->getManager();
+          $user = $entityManager->getRepository(User::class)->find($request->request->get("userId"));
+          if ($user == null) {
+              return new JsonResponse([
+                  'error' => 'User (to post tweet) not found'
+              ], 404);
+          }
+  
+          $tweet = new Tweet();
+          $tweet->setText($request->request->get("text"));
+          $tweet->setDate(new \DateTime());
+          $tweet->setUser($user);
+          $entityManager->persist($tweet);
+          $entityManager->flush();
+  
+          // Devolver el resultado en formato JSON
+          $result = new \stdClass();
+          $result->id = $tweet->getId();
+          $result->date = $tweet->getDate();
+          $result->text = $tweet->getText();
+          $result->user = $this->generateUrl('api_get_user', [
+              'id' => $user->getId(),
+          ], UrlGeneratorInterface::ABSOLUTE_URL); // Enlazamos con la URL del usuario
+          $result->likes = array(); // Como no ha dado likes no hace falta crear enlaces
+          return new JsonResponse($result, 201);
+      }
+
+      function postTweetfonyUser(Request $request)
+    {
         $entityManager = $this->getDoctrine()->getManager();
         $user = $entityManager->getRepository(User::class)->findOneBy(['userName' => $request->request->get("userName")]);
         if ($user) {
-          return new JsonResponse([
-            'error' => 'UserName already exists'
-          ], 409);
+            return new JsonResponse([
+                'error' => 'Username already exists'
+            ], 409);
         }
         $user = new User();
         $user->setName($request->request->get("name"));
         $user->setUserName($request->request->get("userName"));
         $entityManager->persist($user);
         $entityManager->flush();
+
+        // Devolver el resultado en formato JSON
         $result = new \stdClass();
         $result->id = $user->getId();
         $result->name = $user->getName();
@@ -74,7 +140,7 @@ class ApiController extends AbstractController
         $result->likes = array(); // Como no tiene likes no hace falta crear enlaces
         $result->tweets = array(); // Como no tiene tweets no hace falta crear enlaces
         return new JsonResponse($result, 201);
-      }
+    }
 
       function putTweetfonyUser(Request $request, $id) {
         $entityManager = $this->getDoctrine()->getManager();
