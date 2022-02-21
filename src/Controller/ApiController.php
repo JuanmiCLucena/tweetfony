@@ -27,7 +27,7 @@ class ApiController extends AbstractController
           return new JsonResponse($result);
       }
 
-      
+
     function getTweet($id) {
         // Obtenemos el tweet
         $entityManager = $this->getDoctrine()->getManager();
@@ -253,6 +253,40 @@ class ApiController extends AbstractController
             ], UrlGeneratorInterface::ABSOLUTE_URL);
         }
         return new JsonResponse($result);
+    }
+
+    function deleteTweet($id)
+    {
+        $entityManager = $this->getDoctrine()->getManager();
+        $tweet = $entityManager->getRepository(Tweet::class)->find($id);
+        if ($tweet == null) {
+            return new JsonResponse([
+                'error' => 'Tweet not found'
+            ], 404);
+        }
+        
+        $entityManager->remove($tweet);
+        $entityManager->flush();
+
+        // Devolvemos una respuesta vacía
+        return new JsonResponse(null, 204);
+    }
+
+    function deleteTweetfonyUser($id)
+    {
+        $entityManager = $this->getDoctrine()->getManager();
+        $user = $entityManager->getRepository(User::class)->find($id);
+        if ($user == null) {
+            return new JsonResponse([
+                'error' => 'User not found'
+            ], 404);
+        }
+        
+        $entityManager->remove($user);
+        $entityManager->flush();
+
+        // Devolvemos una respuesta vacía
+        return new JsonResponse(null, 204);
     }
 
 }
